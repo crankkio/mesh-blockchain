@@ -1,0 +1,31 @@
+{
+  "name": "MeshBlockchain",
+  "version": "1.0.0",
+  "description": "Blockchain integration library for mesh networks and IoT devices",
+  "keywords": "blockchain, mesh, iot, esp32, kadena",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crankkio/mesh-blockchain.git"
+  },
+  "authors": [
+    {
+      "name": "crankk.io",
+      "url": "https://crankk.io"
+    }
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "rweather/Crypto": "^0.4.0",
+    "dojyorin/base64_encode": "^2.0.3"
+  },
+  "frameworks": ["arduino"],
+  "platforms": ["espressif32"],
+  "headers": [
+    "BlockchainHandler.h"
+  ],
+  "build": {
+    "flags": [
+      "-I src"
+    ]
+  }
+} 
