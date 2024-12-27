@@ -45,19 +45,14 @@ bool BlockchainHandler::isWalletConfigValid()
 }
 
 int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
-    //LOG_DEBUG("\nWallet public key: %s\n", public_key_.data());
     Serial.printf("\nWallet public key: %s\n", public_key_.data());
-    Serial.printf("isWalletConfigValid: %d\n", isWalletConfigValid());
-    Serial.printf("isWifiAvailable: %d\n", isWifiAvailable());
 
     if (!isWalletConfigValid() || !isWifiAvailable()) {
         return 300000; // Every 5 minutes.
     }
 
-    //LOG_DEBUG("\nNode id: %s\n", node_id.c_str());
-
     BlockchainStatus status = executeBlockchainCommand("local", "(free.mesh03.get-my-node)");
-    //LOG_DEBUG("\nResponse: %s\n", blockchainStatusToString(status).c_str());
+    Serial.printf("Response: %s\n", blockchainStatusToString(status).c_str());
 
     if (status == BlockchainStatus::READY) { // node exists, due for sending
         uint32_t packetId = packetIdGenerator_();
@@ -68,18 +63,18 @@ int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
             // Only send the radio beacon if the update-sent command is successful
             if (onSecretGenerated_) {
                 onSecretGenerated_(packetId);
+                Serial.printf("Update sent successfully with packet id: %d\n", packetId);
             }
-            //LOG_DEBUG("\nUpdate sent successfully\n");
         } else {
-            //LOG_DEBUG("\nUpdate sent failed: %s\n", blockchainStatusToString(status).c_str());
+            Serial.printf("Update sent failed: %s\n", blockchainStatusToString(status).c_str());
         }
     } else if (status == BlockchainStatus::NODE_NOT_FOUND) { // node doesn't exist, insert it
         status = executeBlockchainCommand("send", "(free.mesh03.insert-my-node \"" + String(node_id.c_str()) + "\")");
-        //LOG_DEBUG("\nNode insert local response: %s\n", blockchainStatusToString(status).c_str());
+        Serial.printf("Node insert local response: %s\n", blockchainStatusToString(status).c_str());
     } else if (status == BlockchainStatus::NOT_DUE) { // node exists, not due for sending
-        //LOG_DEBUG("\n%s\n", "DON'T SEND beacon");
+        Serial.printf("DON'T SEND beacon\n");
     } else {
-        //LOG_DEBUG("\nError occurred: %s\n", blockchainStatusToString(status).c_str());
+        Serial.printf("Error occurred: %s\n", blockchainStatusToString(status).c_str());
     }
     return 300000; // Every 5 minutes. That should be enough for previous txn to be complete
 }
