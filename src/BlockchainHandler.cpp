@@ -7,10 +7,9 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/pkcs5.h"
 #include "utils.h"
+#include <ArduinoJson.h>
 #include <cstdio>
 #include <ctime>
-#include <fstream>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 
@@ -79,87 +78,93 @@ int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
     return 300000; // Every 5 minutes. That should be enough for previous txn to be complete
 }
 
-JSONObject BlockchainHandler::createCommandObject(const String &command)
+JsonDocument BlockchainHandler::createCommandObject(const String &command)
 {
-    JSONObject cmdObject;
-    JSONArray signers;
-    JSONObject signerObject = {
-        {"scheme", new JSONValue("ED25519")}, {"pubKey", new JSONValue(public_key_)}, {"addr", new JSONValue(public_key_)}};
-    signers.push_back(new JSONValue(signerObject));
-    cmdObject["signers"] = new JSONValue(signers);
+    // In v7 we don't need to specify capacity as it's elastic
+    JsonDocument cmdObject;
 
-    JSONObject metaObject = {{"creationTime", new JSONValue((uint)getCurrentUnixTime())},
-                             {"ttl", new JSONValue(28800)},
-                             {"chainId", new JSONValue("19")},
-                             {"gasPrice", new JSONValue(0.00001)},
-                             {"gasLimit", new JSONValue(1000)},
-                             {"sender", new JSONValue("k:" + public_key_)}};
-    cmdObject["meta"] = new JSONValue(metaObject);
+    // Create signers array
+    JsonArray signers = cmdObject["signers"].to<JsonArray>();
+    JsonObject signer = signers.add<JsonObject>();
+    signer["scheme"] = "ED25519";
+    signer["pubKey"] = public_key_;
+    signer["addr"] = public_key_;
 
-    String current_timestamp = getCurrentTimestamp();
-    cmdObject["nonce"] = new JSONValue(current_timestamp.c_str());
-    cmdObject["networkId"] = new JSONValue("mainnet01");
+    // Create meta object
+    JsonObject meta = cmdObject["meta"].to<JsonObject>();
+    meta["creationTime"] = getCurrentUnixTime();
+    meta["ttl"] = 28800;
+    meta["chainId"] = "19";
+    meta["gasPrice"] = 0.00001;
+    meta["gasLimit"] = 1000;
+    meta["sender"] = "k:" + public_key_;
 
-    JSONObject execObject = {
-        {"code", new JSONValue(command.c_str())}, {"data", new JSONValue(JSONObject())} // Directly passing an empty JSONObject
-    };
-    JSONObject payloadObject = {{"exec", new JSONValue(execObject)}};
-    cmdObject["payload"] = new JSONValue(payloadObject);
+    cmdObject["nonce"] = getCurrentTimestamp();
+    cmdObject["networkId"] = "mainnet01";
+
+    // Create payload object
+    JsonObject payload = cmdObject["payload"].to<JsonObject>();
+    JsonObject exec = payload["exec"].to<JsonObject>();
+    exec["code"] = command;
+    exec["data"].to<JsonObject>(); // Empty data object
 
     return cmdObject;
 }
 
-JSONObject BlockchainHandler::preparePostObject(const JSONObject &cmdObject, const String &commandType)
+JsonDocument BlockchainHandler::preparePostObject(const JsonDocument &cmdObject, const String &commandType)
 {
-    JSONObject postObject;
-    std::unique_ptr<JSONValue> cmd(new JSONValue(cmdObject));
-    const String cmdString = cmd->Stringify().c_str();
-    postObject["cmd"] = new JSONValue(cmdString.c_str());
-    HashVector vector{"Test1", cmdString.c_str()};
+    JsonDocument postObject;
 
+    // Properly copy the command object
+    String cmdString;
+    serializeJson(cmdObject, cmdString);
+    
+    // Create a temporary document to parse the string
+    JsonDocument tempDoc;
+    deserializeJson(tempDoc, cmdString.c_str());  // Use c_str() to get const char*
+    
+    // Copy the parsed object to the cmd field
+    postObject["cmd"] = tempDoc;
+
+    HashVector vector{"Test1", cmdString.c_str()};
+    
     uint8_t *hashBin = encryptionHandler_->Binhash(&vector);
     String hash = encryptionHandler_->KDAhash(&vector);
-
     String signHex = encryptionHandler_->generateSignature(public_key_, private_key_, hashBin);
-    postObject["hash"] = new JSONValue(hash.c_str());
-    JSONArray sigs;
-    JSONObject sigObject{{"sig", new JSONValue(signHex.c_str())}};
-    sigs.push_back(new JSONValue(sigObject));
-    postObject["sigs"] = new JSONValue(sigs);
+
+    postObject["hash"] = hash;
+    JsonArray sigs = postObject["sigs"].to<JsonArray>();
+    JsonObject sigObject = sigs.add<JsonObject>();
+    sigObject["sig"] = signHex;
 
     return postObject;
 }
 
 BlockchainStatus BlockchainHandler::parseBlockchainResponse(const String &response, const String &command)
 {
-    std::unique_ptr<JSONValue> response_value(JSON::Parse(response.c_str()));
-    if (response_value == nullptr) {
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, response);
+
+    if (error) {
+        Serial.printf("JSON parsing failed: %s\n", error.c_str());
         return BlockchainStatus::PARSING_ERROR;
     }
-    JSONObject responseObject = response_value->AsObject();
-    JSONValue *result_value = responseObject["result"];
-    JSONObject resultObject = result_value->AsObject();
-    JSONValue *data_value = resultObject["data"];
-    JSONValue *status_value = resultObject["status"];
-    String status = status_value->Stringify().c_str();
-    //LOG_TRACE("Status value: %s\n", status);
+
+    JsonObject resultObject = doc["result"];
+    JsonObject dataObject = resultObject["data"];
+    const char* status = resultObject["status"];
 
     BlockchainStatus returnStatus = 
         command.indexOf("get-my-node") > 0 ? BlockchainStatus::NODE_NOT_FOUND : BlockchainStatus::FAILURE;
-    if (status.startsWith("\"s")) {
-        JSONObject dataRespObject = data_value->AsObject();
-        JSONValue *pubkeyd_value = dataRespObject["pubkeyd"];
-        director_pubkeyd_ = pubkeyd_value->AsString();
-        //LOG_DEBUG("Director PUBKEYD: %s\n", director_pubkeyd_.c_str());
+
+    if (String(status).startsWith("s")) {
+        if (dataObject["pubkeyd"].is<const char*>()) {
+            director_pubkeyd_ = dataObject["pubkeyd"].as<std::string>();
+        }
 
         if (command.indexOf("get-my-node") > 0) {
-            JSONValue *send_value = dataRespObject["send"];
-            String sendValue = send_value->Stringify().c_str();
-            if (sendValue == "true") {
-                returnStatus = BlockchainStatus::READY;
-            } else {
-                returnStatus = BlockchainStatus::NOT_DUE;
-            }
+            bool sendValue = dataObject["send"];
+            returnStatus = sendValue ? BlockchainStatus::READY : BlockchainStatus::NOT_DUE;
         } else if (command.indexOf("get-sender-details") > 0) {
             returnStatus = BlockchainStatus::SUCCESS;
         }
@@ -172,36 +177,33 @@ BlockchainStatus BlockchainHandler::executeBlockchainCommand(const String &comma
     if (!isWifiAvailable()) {
         return BlockchainStatus::NO_WIFI;
     }
+
     HTTPClient http;
     http.begin(kda_server_ + commandType);
     http.addHeader("Content-Type", "application/json");
 
-    JSONObject cmdObject = createCommandObject(command);
-    JSONObject postObject = preparePostObject(cmdObject, commandType);
+    JsonDocument cmdObject = createCommandObject(command);
+    JsonDocument postObject = preparePostObject(cmdObject, commandType);
 
-    std::unique_ptr<JSONValue> post;
+    String postRaw;
     if (commandType == "local") {
-        post = std::unique_ptr<JSONValue>(new JSONValue(postObject));
+        serializeJson(postObject, postRaw);
     } else {
-        JSONArray cmds;
-        JSONObject cmdsObject;
-        cmds.push_back(new JSONValue(postObject));
-        cmdsObject["cmds"] = new JSONValue(cmds);
-        post = std::unique_ptr<JSONValue>(new JSONValue(cmdsObject));
+        JsonDocument finalDoc;
+        JsonArray cmds = finalDoc["cmds"].to<JsonArray>();
+        cmds.add(postObject.as<JsonObject>());
+        serializeJson(finalDoc, postRaw);
     }
 
-    const String postRaw = post->Stringify().c_str();
     logLongString(postRaw);
 
     http.setTimeout(15000);
     int httpResponseCode = http.POST(postRaw);
-    //LOG_DEBUG("Kadena HTTP response %d\n", httpResponseCode);
     String response = http.getString();
     logLongString(response);
 
     http.end();
-    //LOG_TRACE("Called HTTP end\n");
-    // Handle HTTP response codes
+
     if (httpResponseCode < 0 || (httpResponseCode >= 400 && httpResponseCode <= 599)) {
         return BlockchainStatus::HTTP_ERROR;
     }
@@ -209,11 +211,7 @@ BlockchainStatus BlockchainHandler::executeBlockchainCommand(const String &comma
         return BlockchainStatus::EMPTY_RESPONSE;
     }
 
-    if (commandType == "local") {
-        return parseBlockchainResponse(response, command);
-    } else {
-        return BlockchainStatus::SUCCESS;
-    }
+    return commandType == "local" ? parseBlockchainResponse(response, command) : BlockchainStatus::SUCCESS;
 }
 
 String BlockchainHandler::encryptPayload(const std::string &payload)

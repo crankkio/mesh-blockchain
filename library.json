@@ -16,7 +16,8 @@
   "license": "MIT",
   "dependencies": {
     "rweather/Crypto": "^0.4.0",
-    "dojyorin/base64_encode": "^2.0.3"
+    "dojyorin/base64_encode": "^2.0.3",
+    "bblanchon/ArduinoJson": "^7.2.1"
   },
   "frameworks": ["arduino"],
   "platforms": ["espressif32"],

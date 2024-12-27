@@ -4,8 +4,8 @@
 #include <string>
 #include <functional>
 #include <WiFi.h>  // For WiFi status checks
+#include <ArduinoJson.h>
 #include "EncryptionHandler.h"
-#include "serialization/JSON.h"  // We'll need to extract this from Meshtastic
 
 // Define an enumeration for status codes
 enum class BlockchainStatus {
@@ -114,37 +114,39 @@ class BlockchainHandler
     bool isWalletConfigValid();
 
     /**
-     * Creates a JSON object representing a blockchain command.
+     * Creates a JSON document representing a blockchain command.
      *
-     * This method constructs a JSON object that encapsulates the details of a blockchain command,
+     * This method constructs a JSON document that encapsulates the details of a blockchain command,
      * including the command itself and associated metadata required for its execution.
+     * Uses ArduinoJson's JsonDocument for efficient memory management and JSON handling.
      *
      * @param command The blockchain command to be executed.
-     * @return A JSONObject representing the command to be sent to the blockchain.
+     * @return A JsonDocument representing the command to be sent to the blockchain.
      */
-    JSONObject createCommandObject(const String &command);
+    JsonDocument createCommandObject(const String &command);
 
     /**
-     * Prepares a JSON object for POST request based on the command object and command type.
+     * Prepares a JSON document for POST request based on the command object and command type.
      *
-     * This method prepares a JSON object that is ready to be sent as a POST request to the blockchain.
+     * This method prepares a JSON document that is ready to be sent as a POST request to the blockchain.
      * It includes the command object and additional information based on the command type.
+     * Uses ArduinoJson's JsonDocument for efficient memory handling and serialization.
      *
      * @param cmdObject The command object created by createCommandObject.
      * @param commandType The type of the command, affecting how the post object is prepared.
-     * @return A JSONObject ready for being sent as a POST request.
+     * @return A JsonDocument ready for being sent as a POST request.
      */
-    JSONObject preparePostObject(const JSONObject &cmdObject, const String &commandType);
+    JsonDocument preparePostObject(const JsonDocument &cmdObject, const String &commandType);
 
     /**
      * Parses the blockchain response received as a string into a more usable form.
      *
-     * This method takes a blockchain response in the form of a string, parses it, and extracts
-     * relevant information, making it easier to handle the response programmatically.
+     * This method takes a blockchain response in the form of a string, parses it using ArduinoJson,
+     * and extracts relevant information, making it easier to handle the response programmatically.
      *
-     * The method first attempts to parse the response string into a JSON object. If the parsing
+     * The method first attempts to parse the response string into a JSON document. If the parsing
      * fails, it returns a PARSING_ERROR status. It then examines the "result" field of the JSON
-     * object to determine the status of the blockchain command. Depending on the command type,
+     * document to determine the status of the blockchain command. Depending on the command type,
      * it extracts specific information such as the director's public key and the send status.
      *
      * @param response The blockchain response as a raw string.
