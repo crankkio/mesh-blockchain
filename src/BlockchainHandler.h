@@ -20,8 +20,9 @@ enum class BlockchainStatus {
     NOT_DUE,
 };
 
-// Add after the BlockchainStatus enum
+// Meshtastic callbacks
 using PacketIdGenerator = std::function<uint32_t(void)>;
+using SecretCallback = std::function<void(uint32_t packetId)>;
 
 class BlockchainHandler
 {
@@ -36,7 +37,6 @@ class BlockchainHandler
     BlockchainHandler(const std::string& public_key, 
                      const std::string& private_key,
                      bool is_wallet_enabled,
-                     PacketIdGenerator packetIdGen,
                      const String& server_url = "http://kda.crankk.org/chainweb/0.0/mainnet01/chain/19/pact/api/v1/");
 
     /**
@@ -50,9 +50,13 @@ class BlockchainHandler
      * This method is responsible for ensuring the node's data is up-to-date with the blockchain by performing synchronization
      * tasks. It may involve sending or receiving data to/from the blockchain, depending on the node's status.
      * @param node_id The ID of the node to sync
+     * @param packetIdGen Callback function to generate unique packet IDs
+     * @param onSecretGen Callback function called when a secret is generated
      * @return The interval in milliseconds before the next synchronization attempt should occur.
      */
-    int32_t performNodeSync(const std::string& node_id);
+    int32_t performNodeSync(const std::string& node_id,
+                           PacketIdGenerator packetIdGen = nullptr,
+                           SecretCallback onSecretGen = nullptr);
 
     /**
      * Executes a specified command on a blockchain web service.
@@ -94,14 +98,6 @@ class BlockchainHandler
      * Check if WiFi is available
      */
     bool isWifiAvailable() const { return WiFi.status() == WL_CONNECTED; }
-
-    // Callback type for when a secret is generated
-    using SecretCallback = std::function<void(uint32_t packetId)>;
-    
-    // Set callback for secret generation
-    void setSecretCallback(SecretCallback callback) {
-        onSecretGenerated_ = callback;
-    }
 
   private:
     /**
@@ -161,7 +157,4 @@ class BlockchainHandler
     String kda_server_;
     std::string director_pubkeyd_;
     std::unique_ptr<EncryptionHandler> encryptionHandler_;
-
-    SecretCallback onSecretGenerated_;
-    PacketIdGenerator packetIdGenerator_;
 };

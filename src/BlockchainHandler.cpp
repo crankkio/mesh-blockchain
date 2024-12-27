@@ -27,12 +27,10 @@ char *strptime(const char *str, const char *format, struct tm *tm)
 BlockchainHandler::BlockchainHandler(const std::string& public_key, 
                                    const std::string& private_key,
                                    bool is_wallet_enabled,
-                                   PacketIdGenerator packetIdGen,
                                    const String& server_url)
     : public_key_(public_key)
     , private_key_(private_key)
     , is_wallet_enabled_(is_wallet_enabled)
-    , packetIdGenerator_(packetIdGen)
 {
     kda_server_ = server_url;
     encryptionHandler_ = std::unique_ptr<EncryptionHandler>(new EncryptionHandler());
@@ -43,7 +41,9 @@ bool BlockchainHandler::isWalletConfigValid()
     return is_wallet_enabled_ && public_key_.length() == 64 && private_key_.length() == 64;
 }
 
-int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
+int32_t BlockchainHandler::performNodeSync(const std::string& node_id,
+                                           PacketIdGenerator packetIdGen,
+                                           SecretCallback onSecretGen) {
     Serial.printf("\nWallet public key: %s\n", public_key_.data());
 
     if (!isWalletConfigValid() || !isWifiAvailable()) {
@@ -53,15 +53,19 @@ int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
     BlockchainStatus status = executeBlockchainCommand("local", "(free.mesh03.get-my-node)");
     Serial.printf("Response: %s\n", blockchainStatusToString(status).c_str());
 
-    if (status == BlockchainStatus::READY) { // node exists, due for sending
-        uint32_t packetId = packetIdGenerator_();
+    // node exists, due for sending
+    if (status == BlockchainStatus::READY) {
+        uint32_t packetId = 0;
+        if (packetIdGen) {
+            packetId = packetIdGen();
+        }
         String secret_hex = String(packetId, HEX);
         String secret = encryptPayload(secret_hex.c_str());
         status = executeBlockchainCommand("send", "(free.mesh03.update-sent \"" + secret + "\")");
         if (status == BlockchainStatus::SUCCESS) {
             // Only send the radio beacon if the update-sent command is successful
-            if (onSecretGenerated_) {
-                onSecretGenerated_(packetId);
+            if (onSecretGen) {
+                onSecretGen(packetId);
                 Serial.printf("Update sent successfully with packet id: %d\n", packetId);
             }
         } else {
@@ -80,7 +84,6 @@ int32_t BlockchainHandler::performNodeSync(const std::string& node_id) {
 
 JsonDocument BlockchainHandler::createCommandObject(const String &command)
 {
-    // In v7 we don't need to specify capacity as it's elastic
     JsonDocument cmdObject;
 
     // Create signers array
@@ -114,11 +117,10 @@ JsonDocument BlockchainHandler::createCommandObject(const String &command)
 JsonDocument BlockchainHandler::preparePostObject(const JsonDocument &cmdObject, const String &commandType)
 {
     JsonDocument postObject;
+
     // Serialize cmdObject to a string first
     String cmdString;
     serializeJson(cmdObject, cmdString);
-
-    // Set cmd as a string, not an object
     postObject["cmd"] = cmdString;
 
     HashVector vector{"Test1", cmdString.c_str()};
@@ -198,7 +200,7 @@ BlockchainStatus BlockchainHandler::executeBlockchainCommand(const String &comma
     logLongString(response);
 
     http.end();
-
+    // Handle HTTP response codes
     if (httpResponseCode < 0 || (httpResponseCode >= 400 && httpResponseCode <= 599)) {
         return BlockchainStatus::HTTP_ERROR;
     }
