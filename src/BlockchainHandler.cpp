@@ -114,20 +114,15 @@ JsonDocument BlockchainHandler::createCommandObject(const String &command)
 JsonDocument BlockchainHandler::preparePostObject(const JsonDocument &cmdObject, const String &commandType)
 {
     JsonDocument postObject;
-
-    // Properly copy the command object
+    // Serialize cmdObject to a string first
     String cmdString;
     serializeJson(cmdObject, cmdString);
-    
-    // Create a temporary document to parse the string
-    JsonDocument tempDoc;
-    deserializeJson(tempDoc, cmdString.c_str());  // Use c_str() to get const char*
-    
-    // Copy the parsed object to the cmd field
-    postObject["cmd"] = tempDoc;
+
+    // Set cmd as a string, not an object
+    postObject["cmd"] = cmdString;
 
     HashVector vector{"Test1", cmdString.c_str()};
-    
+
     uint8_t *hashBin = encryptionHandler_->Binhash(&vector);
     String hash = encryptionHandler_->KDAhash(&vector);
     String signHex = encryptionHandler_->generateSignature(public_key_, private_key_, hashBin);
