@@ -26,13 +26,12 @@ inline String getCurrentTimestamp() {
 inline void logLongString(const String &str, size_t chunkSize = 50) {
     size_t len = str.length();
     if (len <= chunkSize) {
-        int a =42;
-        //LOG_DEBUG("%s\n", str.c_str());
+        Serial.printf("%s\n", str.c_str());
     } else {
         size_t i = 0;
         while (i < len) {
             size_t end = std::min(i + chunkSize, len);
-            //LOG_DEBUG("%s\n", str.substring(i, end).c_str());
+            Serial.printf("%s\n", str.substring(i, end).c_str());
             i = end;
         }
     }
