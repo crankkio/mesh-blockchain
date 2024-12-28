@@ -1,6 +1,4 @@
 #include "BlockchainHandler.h"
-#include "HTTPClient.h"
-#include "WiFi.h"
 #include "mbedtls/aes.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
@@ -10,7 +8,6 @@
 #include <ArduinoJson.h>
 #include <cstdio>
 #include <ctime>
-#include <memory>
 #include <sstream>
 
 // Redefine strptime to avoid IRAM issue when using the HTTPClient functions

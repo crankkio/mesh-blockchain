@@ -1,9 +1,13 @@
 #pragma once
-#include <Arduino.h>  
+#include <Arduino.h>
 #include <memory>
+#ifndef UNIT_TEST
+  #include <WiFi.h>  // For WiFi status checks
+  #include <HTTPClient.h>
+#endif
+
 #include <string>
 #include <functional>
-#include <WiFi.h>  // For WiFi status checks
 #include <ArduinoJson.h>
 #include "EncryptionHandler.h"
 
@@ -43,6 +47,15 @@ class BlockchainHandler
      * Destructor for the BlockchainHandler class.
      */
     ~BlockchainHandler() = default;
+
+    /**
+     * Checks if the wallet configuration is valid.
+     *
+     * This method verifies if the wallet is enabled and both the public and private keys are of the correct length.
+     *
+     * @return True if the wallet configuration is valid, otherwise false.
+     */
+    bool isWalletConfigValid();
 
     /**
      * Initiates a synchronization process with the blockchain, executing required actions based on the node's current state.
@@ -100,15 +113,6 @@ class BlockchainHandler
     bool isWifiAvailable() const { return WiFi.status() == WL_CONNECTED; }
 
   private:
-    /**
-     * Checks if the wallet configuration is valid.
-     *
-     * This method verifies if the wallet is enabled and both the public and private keys are of the correct length.
-     *
-     * @return True if the wallet configuration is valid, otherwise false.
-     */
-    bool isWalletConfigValid();
-
     /**
      * Creates a JSON document representing a blockchain command.
      *

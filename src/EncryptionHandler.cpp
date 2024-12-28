@@ -147,7 +147,7 @@ String EncryptionHandler::encrypt(const std::string &base64PublicKey, const std:
 
     // Seed the random number generator
     if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, nullptr, 0) != 0) {
-        //LOG_ERROR("Failed to initialize RNG\n");
+        Serial.printf("Failed to initialize RNG\n");
         return "";
     }
 
@@ -160,8 +160,8 @@ String EncryptionHandler::encrypt(const std::string &base64PublicKey, const std:
     // Convert std::string to const unsigned char*
     const unsigned char *publicKey = reinterpret_cast<const unsigned char *>(decodedKey.c_str());
     size_t publicKeyLen = decodedKey.size() + 1;
-    if (mbedtls_pk_parse_public_key(&pk, publicKey, publicKeyLen) != 0) {
-        //LOG_ERROR("Failed to parse public key\n");
+    if (int err = mbedtls_pk_parse_public_key(&pk, publicKey, publicKeyLen) != 0) {
+        Serial.printf("Failed to parse public key: -%04x\n", -err);
         return "";
     }
 
@@ -184,7 +184,7 @@ String EncryptionHandler::encrypt(const std::string &base64PublicKey, const std:
     size_t olen;
     if (mbedtls_rsa_rsaes_oaep_encrypt(rsa, mbedtls_ctr_drbg_random, &ctr_drbg, MBEDTLS_RSA_PUBLIC, nullptr, 0, sizeof(symKeyHex),
                                        reinterpret_cast<const unsigned char *>(symKeyHex), buffer) != 0) {
-        //LOG_ERROR("RSA encryption failed\n");
+        Serial.printf("RSA encryption failed\n");
         return "";
     }
     olen = mbedtls_rsa_get_len(rsa);
@@ -248,7 +248,7 @@ String EncryptionHandler::encrypt(const std::string &base64PublicKey, const std:
     // Concatenate the encoded strings with a delimiter
     String result = String(encryptedCombinedDataStr.c_str()) + ";;;;;" + String(encryptedKeyStr.c_str());
     //LOG_DEBUG("+++++++++ RESULT OF ENCRYPT!!!:\n");
-    logLongString(result);
+    //logLongString(result);
 
     // Cleanup
     mbedtls_aes_free(&aes);
