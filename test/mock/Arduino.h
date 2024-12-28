@@ -100,7 +100,10 @@ public:
 // WiFi interface
 class WiFiClass {
 public:
-    uint8_t status() { return WL_DISCONNECTED; }
+    uint8_t status() { return status_; }
+    void setStatus(uint8_t status) { status_ = status; }
+private:
+    uint8_t status_ = WL_DISCONNECTED;
 };
 
 // HTTPClient interface

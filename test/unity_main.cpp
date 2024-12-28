@@ -16,6 +16,7 @@ void test_binary_hash_generation(void);
 void test_kda_hash_generation(void);
 void test_hex_conversion(void);
 void test_payload_encryption(void);
+void test_wifi_connection(void);
 
 int main(void) {
     UNITY_BEGIN();
@@ -23,6 +24,7 @@ int main(void) {
     // Blockchain tests
     RUN_TEST(test_invalid_wallet_config);
     RUN_TEST(test_valid_wallet_config);
+    RUN_TEST(test_wifi_connection);
 
     // Encryption tests
     RUN_TEST(test_binary_hash_generation);
