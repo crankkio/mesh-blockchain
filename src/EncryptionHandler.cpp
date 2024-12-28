@@ -160,7 +160,7 @@ String EncryptionHandler::encrypt(const std::string &base64PublicKey, const std:
     // Convert std::string to const unsigned char*
     const unsigned char *publicKey = reinterpret_cast<const unsigned char *>(decodedKey.c_str());
     size_t publicKeyLen = decodedKey.size() + 1;
-    if (int err = mbedtls_pk_parse_public_key(&pk, publicKey, publicKeyLen)) {
+    if (int err = mbedtls_pk_parse_public_key(&pk, publicKey, publicKeyLen) != 0) {
         Serial.printf("Failed to parse public key: -%04x\n", -err);
         return "";
     }
