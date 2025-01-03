@@ -1,11 +1,11 @@
 {
-  "name": "MeshBlockchain",
-  "version": "1.0.0",
-  "description": "Blockchain integration library for mesh networks and IoT devices",
+  "name": "KadenaClientAPI",
+  "version": "1.0.1",
+  "description": "Kadena blockchain client API for microcontroller and IoT devices",
   "keywords": "blockchain, mesh, iot, esp32, kadena",
   "repository": {
     "type": "git",
-    "url": "https://github.com/crankkio/mesh-blockchain.git"
+    "url": "https://github.com/crankkio/kadena-client-api.git"
   },
   "authors": [
     {
